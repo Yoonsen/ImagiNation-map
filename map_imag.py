@@ -152,14 +152,62 @@ with col_map:
     cluster = MarkerCluster().add_to(m)
     
     
+    # for _, row in places.iterrows():
+    #     folium.Marker(
+    #         location=[row['latitude'], row['longitude']],
+    #         popup=folium.Popup(f"{row['token']}", parse_html=True),
+    #         icon=folium.Icon(color="red"),
+    #         tooltip=f"Modern {row['name']}, count {row['frekv']}"
+    #     ).add_to(cluster)
+
+    
     for _, row in places.iterrows():
+        # Get only the books that mention this specific place
+        place_books = corpus_df[corpus_df.dhlabid == row['dhlabid']]
+        
+        html = f"""
+        <div style='width:500px'>
+            <h4>{row['name']}</h4>
+            <p><strong>Historical name:</strong> {row['token']} ({row['frekv']} mentions)</p>
+            <div style='max-height: 400px; overflow-y: auto;'>
+                <table style='width: 100%; border-collapse: collapse;'>
+                    <thead style='position: sticky; top: 0; background: white;'>
+                        <tr>
+                            <th style='border: 1px solid #ddd; padding: 8px; text-align: left;'>Title</th>
+                            <th style='border: 1px solid #ddd; padding: 8px; text-align: left;'>Author</th>
+                            <th style='border: 1px solid #ddd; padding: 8px; text-align: left;'>Year</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        """
+        
+        # Add each book as a table row
+        for _, book in place_books.iterrows():
+            book_url = f"https://nb.no/items/{book.urn}?searchText={row['token']}"
+            html += f"""
+                <tr>
+                    <td style='border: 1px solid #ddd; padding: 8px;'>
+                        <a href='{book_url}' target='_blank'>{book.title}</a>
+                    </td>
+                    <td style='border: 1px solid #ddd; padding: 8px;'>{book.author}</td>
+                    <td style='border: 1px solid #ddd; padding: 8px;'>{book.year}</td>
+                </tr>
+            """
+        
+        html += """
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        """
+        
         folium.Marker(
             location=[row['latitude'], row['longitude']],
-            popup=folium.Popup(f"{row['token']}", parse_html=True),
+            popup=folium.Popup(html, max_width=500),
             icon=folium.Icon(color="red"),
-            tooltip=f"Modern {row['name']}, count {row['frekv']}"
+            tooltip=f"{row['name']} - mentioned {row['frekv']} times"
         ).add_to(cluster)
-
+    
     folium.LayerControl().add_to(m)
     m.to_streamlit(height=600)
     
