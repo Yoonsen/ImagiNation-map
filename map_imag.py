@@ -76,10 +76,7 @@ BASEMAP_OPTIONS = [
     "OpenStreetMap.Mapnik",
     "CartoDB.Positron",
     "CartoDB.DarkMatter",
-    "Stadia.StamenTerrain",
-    "Esri.WorldImagery",
-    "Esri.WorldStreetMap",
-    "Esri.WorldTopoMap"
+   
 ]
 basemap = "CartoDB.Positron"
 
@@ -122,7 +119,7 @@ with col1:
     st.write(f"Antall bøker i korpus: {len(subkorpus)}")
     st.write(f"Antall forfattere: {len(list(set(subkorpus.author)))}")
     #st.dataframe(subkorpus)
-    basemap = st.selectbox("Choose map style", BASEMAP_OPTIONS, index=BASEMAP_OPTIONS.index("CartoDB.Positron"))
+    basemap = st.selectbox("Choose map style", BASEMAP_OPTIONS, index=BASEMAP_OPTIONS.index("OpenStreetMap.Mapnik"))
 
 places_corpus = subkorpus.sample(min(10, len(subkorpus)))
 
