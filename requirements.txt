@@ -1,8 +1,9 @@
-streamlit==1.36.0
-pandas==2.2.0
-numpy==1.26.3
-leafmap==0.39.2
-folium==0.15.1
-requests==2.31.0
-dhlab==2.41.0
-streamlit-folium==0.23.0
+streamlit
+pandas
+numpy
+leafmap
+folium
+dhlab
+openpyxl
+streamlit-folium
+requests
