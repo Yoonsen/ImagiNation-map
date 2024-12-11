@@ -136,7 +136,7 @@ st.dataframe(places[['token','name','frekv']].sort_values(by='frekv', ascending=
 with col_map:
     center_lat = places.latitude.mean()
     center_lon = places.longitude.mean()
-
+    
     m = leafmap.Map(
         center=(center_lat, center_lon),
         zoom=5,
@@ -145,13 +145,13 @@ with col_map:
         control_scale=True,
         tiles=basemap,
         attr="Map tiles",  # Attribution text
-        prefer_canvas=True  # This might help with rendering
+        prefer_canvas=True,  # This might help with rendering
+        basemap=basemap
     )
 
 # Try disabling smooth zoom which can cause blur during transitions
     m.options['smoothZoom'] = False
 
-    m.add_basemap(basemap)
     cluster = MarkerCluster().add_to(m)
     
     
