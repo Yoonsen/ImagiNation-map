@@ -8,7 +8,8 @@ import tools_imag as ti
 import dhlab.api.dhlab_api as api
 import requests
 from io import StringIO
-
+from urllib.parse import quote
+            
 def dataframe_with_selections(df, key_prefix):
     df_with_selections = df.copy()
     df_with_selections.insert(0, "Select", False)
@@ -70,6 +71,43 @@ def corpus():
     categories = list(set(corpus.category))
     return corpus, authors, titles, categories
 
+@st.cache_data
+def load_exploded_places():
+    df = pd.read_pickle('exploded_places.pkl')
+    #st.write("Columns in df:", df.columns)
+    return df
+
+
+@st.cache_data()
+def calculate_place_stats(places_data):
+    """Calculate frequency and dispersion metrics for places"""
+    # Group by place name to combine statistics
+    place_stats = {}
+    
+    for name, group in places_data.groupby('name'):
+        total_freq = group['frekv'].sum()
+        docs = set(group['dhlabid'])
+        dispersion = len(docs) / len(places_data['dhlabid'].unique())
+        score = total_freq * dispersion
+        
+        place_stats[name] = {
+            'freq': total_freq,
+            'docs': docs,
+            'dispersion': dispersion,
+            'score': score,
+            'lat': group['latitude'].iloc[0],
+            'lon': group['longitude'].iloc[0],
+            'token': group['token'].iloc[0]
+        }
+    
+    return place_stats
+
+def select_places(place_stats, min_score=0.01, max_places=200):
+    """Select places based on combined frequency/dispersion score"""
+    filtered = {p: s for p, s in place_stats.items() if s['score'] >= min_score}
+    return dict(sorted(filtered.items(), 
+                      key=lambda x: x[1]['score'], 
+                      reverse=True)[:max_places])
 
 # Define available basemaps
 BASEMAP_OPTIONS = [
@@ -78,15 +116,13 @@ BASEMAP_OPTIONS = [
     "CartoDB.DarkMatter",
    
 ]
-basemap = "CartoDB.Positron"
 
 st.set_page_config(layout="wide")
 st.title("ImagiNation - kart")
 
 
+preprocessed_places = load_exploded_places()
 
-corpus_df, authorlist, titlelist, categorylist = corpus()
-col1, col_map = st.columns([1, 3])
 
 corpus_df, authorlist, titlelist, categorylist = corpus()
 col1, col_map = st.columns([1, 3])
@@ -114,61 +150,105 @@ with col1:
                           key="title_select")
     if titles != []:
         subkorpus = subkorpus[subkorpus.title.isin(titles)]
+        
+    all_place_names = sorted(preprocessed_places['name'].unique())
+    selected_places = st.multiselect(
+        'Select places to include', 
+        options=all_place_names,
+        help="Show books that mention these places"
+    )
     
-
+    # If places selected, filter subkorpus
+    if selected_places:
+        # Get all dhlabids for selected places
+        place_books = preprocessed_places[
+            preprocessed_places['name'].isin(selected_places)
+        ]['docs'].unique()
+        
+        subkorpus = subkorpus[subkorpus.dhlabid.isin(place_books)]
+        st.write(f"Found {len(subkorpus)} books mentioning selected places")
     st.write(f"Antall bøker i korpus: {len(subkorpus)}")
     st.write(f"Antall forfattere: {len(list(set(subkorpus.author)))}")
     #st.dataframe(subkorpus)
     basemap = st.selectbox("Choose map style", BASEMAP_OPTIONS, index=BASEMAP_OPTIONS.index("OpenStreetMap.Mapnik"))
+    max_places = st.slider(
+        "Maximum number of places to show", 
+        min_value=1, 
+        max_value=500,
+        value=200,
+        step=10,
+        help="Higher numbers may affect performance"
+    )
 
-places_corpus = subkorpus.sample(min(10, len(subkorpus)))
+# Add in the control section with other sliders
+    max_books = st.slider(
+        "Maximum number of books to process", 
+        min_value=100, 
+        max_value=5000,
+        value=400,
+        step=100,
+        help="Lower numbers give faster response but less complete picture"
+    )
 
-places = ti.geo_locations_corpus(places_corpus.dhlabid)
+# Then use this instead of hardcoded 2000
+if len(subkorpus) > max_books:
+    selected_dhlabids = subkorpus.sample(max_books).dhlabid
+    st.write(f"Sampling {max_books} books from selection")
+else:
+    selected_dhlabids = subkorpus.dhlabid
+    st.write(f"Using all {len(subkorpus)} books")
+
+# Get places directly
+places = ti.geo_locations_corpus(selected_dhlabids)
+st.write(f"Place mentions found: {len(places)}")
 places = places[places['rank']==1]
-#st.write(len(places))
-#st.dataframe(places)
-st.dataframe(places[['token','name','frekv']].sort_values(by='frekv', ascending=False), hide_index=True)
+
+# Group places to get statistics
+significant_places = (places.groupby('name')
+    .agg({
+        'token': 'first',
+        'frekv': 'sum',
+        'latitude': 'first',
+        'longitude': 'first',
+        'dhlabid': list
+    })
+    .reset_index()
+)
+
+# Calculate dispersion
+total_books = len(selected_dhlabids)
+significant_places['dispersion'] = significant_places['dhlabid'].apply(lambda x: len(x) / total_books)
+significant_places['score'] = significant_places['frekv'] * significant_places['dispersion']
+
+# Get top places
+significant_places = significant_places.nlargest(max_places, 'score')
 
 
 with col_map:
-    center_lat = places.latitude.mean()
-    center_lon = places.longitude.mean()
+    # Use DataFrame columns directly
+    center_lat = significant_places['latitude'].mean()
+    center_lon = significant_places['longitude'].mean()
     
     m = leafmap.Map(
-        center=(center_lat, center_lon),
-        zoom=5,
-        max_zoom=18,
-        min_zoom=2,
-        control_scale=True,
-        tiles=basemap,
-        attr="Map tiles",  # Attribution text
-        prefer_canvas=True,  # This might help with rendering
-        basemap=basemap
+       center=(center_lat, center_lon),
+       zoom=5,
+       basemap=basemap
     )
-
-# Try disabling smooth zoom which can cause blur during transitions
-    m.options['smoothZoom'] = False
-
+    
     cluster = MarkerCluster().add_to(m)
-    
-    
-    # for _, row in places.iterrows():
-    #     folium.Marker(
-    #         location=[row['latitude'], row['longitude']],
-    #         popup=folium.Popup(f"{row['token']}", parse_html=True),
-    #         icon=folium.Icon(color="red"),
-    #         tooltip=f"Modern {row['name']}, count {row['frekv']}"
-    #     ).add_to(cluster)
 
-    
-    for _, row in places.iterrows():
-        # Get only the books that mention this specific place
-        place_books = corpus_df[corpus_df.dhlabid == row['dhlabid']]
+    # Create markers using DataFrame rows
+    for _, place in significant_places.iterrows():
+        # Get books for this place
+        place_books = corpus_df[corpus_df.dhlabid.isin(place['dhlabid'])]
+        book_count = len(place_books)
         
         html = f"""
         <div style='width:500px'>
-            <h4>{row['name']}</h4>
-            <p><strong>Historical name:</strong> {row['token']} ({row['frekv']} mentions)</p>
+            <h4>{place['name']}</h4>
+            <p><strong>Historical name:</strong> {place['token']}</p>
+            <p><strong>{place['frekv']} mentions in {book_count} books</strong></p>
+            <p>Dispersion score: {place['dispersion']:.3f}</p>
             <div style='max-height: 400px; overflow-y: auto;'>
                 <table style='width: 100%; border-collapse: collapse;'>
                     <thead style='position: sticky; top: 0; background: white;'>
@@ -181,9 +261,9 @@ with col_map:
                     <tbody>
         """
         
-        # Add each book as a table row
+        # Add book rows
         for _, book in place_books.iterrows():
-            book_url = f"https://nb.no/items/{book.urn}?searchText={row['token']}"
+            book_url = f"https://nb.no/items/{book.urn}?searchText=\"{quote(place['token'])}\""
             html += f"""
                 <tr>
                     <td style='border: 1px solid #ddd; padding: 8px;'>
@@ -202,12 +282,11 @@ with col_map:
         """
         
         folium.Marker(
-            location=[row['latitude'], row['longitude']],
+            location=[place['latitude'], place['longitude']],
             popup=folium.Popup(html, max_width=500),
             icon=folium.Icon(color="red"),
-            tooltip=f"{row['name']} - mentioned {row['frekv']} times"
+            tooltip=f"{place['name']}: {place['frekv']} mentions in {book_count} books"
         ).add_to(cluster)
     
     folium.LayerControl().add_to(m)
     m.to_streamlit(height=600)
-    
