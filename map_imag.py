@@ -122,6 +122,7 @@ with col1:
     st.write(f"Antall bøker i korpus: {len(subkorpus)}")
     st.write(f"Antall forfattere: {len(list(set(subkorpus.author)))}")
     #st.dataframe(subkorpus)
+    basemap = st.selectbox("Choose map style", BASEMAP_OPTIONS, index=BASEMAP_OPTIONS.index("CartoDB.Positron"))
 
 places_corpus = subkorpus.sample(min(10, len(subkorpus)))
 
@@ -130,6 +131,7 @@ places = places[places['rank']==1]
 #st.write(len(places))
 #st.dataframe(places)
 st.dataframe(places[['token','name','frekv']].sort_values(by='frekv', ascending=False), hide_index=True)
+
 
 with col_map:
     center_lat = places.latitude.mean()
