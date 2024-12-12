@@ -223,9 +223,7 @@ significant_places['score'] = significant_places['frekv'] * significant_places['
 # Get top places
 significant_places = significant_places.nlargest(max_places, 'score')
 
-
 with col_map:
-    # Use DataFrame columns directly
     center_lat = significant_places['latitude'].mean()
     center_lon = significant_places['longitude'].mean()
     
@@ -235,11 +233,51 @@ with col_map:
        basemap=basemap
     )
     
-    cluster = MarkerCluster().add_to(m)
+    # Updated JavaScript function with blue colors for clusters
+    cluster_js = """
+        function(cluster) {
+            var childCount = cluster.getChildCount();
+            var total_freq = 0;
+            
+            cluster.getAllChildMarkers().forEach(function(marker) {
+                total_freq += marker.options.frequency;
+            });
+            
+            var radius = Math.min(Math.sqrt(total_freq) * 2, 80);
+            var borderWidth = Math.min(3 + Math.sqrt(childCount), 8);
+            var innerRadius = Math.max(radius * 0.7, 20);
+            
+            return L.divIcon({
+                html: '<div style="display: flex; align-items: center; justify-content: center;">' +
+                      '<div style="width: ' + radius * 2 + 'px; height: ' + radius * 2 + 'px; ' +
+                      'background-color: rgba(0, 0, 255, 0.2); ' +  // Changed to blue
+                      'border: ' + borderWidth + 'px solid rgba(0, 0, 255, 0.6); ' +  // Changed to blue
+                      'border-radius: 50%; display: flex; align-items: center; justify-content: center;">' +
+                      '<div style="width: ' + innerRadius + 'px; height: ' + innerRadius + 'px; ' +
+                      'background-color: rgba(0, 0, 255, 0.4); border-radius: 50%; ' +  // Changed to blue
+                      'display: flex; align-items: center; justify-content: center;">' +
+                      '<span style="color: white; font-weight: bold;">' + childCount + '</span>' +
+                      '</div></div></div>',
+                className: 'marker-cluster-custom',
+                iconSize: L.point(radius * 2, radius * 2),
+                iconAnchor: L.point(radius, radius)
+            });
+        }
+    """
+    
+    cluster = MarkerCluster(
+        icon_create_function=cluster_js,
+        options={
+            'maxClusterRadius': 60,
+            'spiderfyOnMaxZoom': True,
+            'showCoverageOnHover': True,
+            'zoomToBoundsOnClick': True,
+            'spiderfyDistanceMultiplier': 2,
+        }
+    ).add_to(m)
 
-    # Create markers using DataFrame rows
+    # Individual markers remain red
     for _, place in significant_places.iterrows():
-        # Get books for this place
         place_books = corpus_df[corpus_df.dhlabid.isin(place['dhlabid'])]
         book_count = len(place_books)
         
@@ -261,7 +299,6 @@ with col_map:
                     <tbody>
         """
         
-        # Add book rows
         for _, book in place_books.iterrows():
             book_url = f"https://nb.no/items/{book.urn}?searchText=\"{quote(place['token'])}\""
             html += f"""
@@ -281,11 +318,18 @@ with col_map:
         </div>
         """
         
-        folium.Marker(
+        radius = min(np.sqrt(place['frekv']) * 2, 80)
+        folium.CircleMarker(
+            radius=radius/2,
             location=[place['latitude'], place['longitude']],
             popup=folium.Popup(html, max_width=500),
-            icon=folium.Icon(color="red"),
-            tooltip=f"{place['name']}: {place['frekv']} mentions in {book_count} books"
+            tooltip=f"{place['name']}: {place['frekv']} mentions in {book_count} books",
+            color='red',
+            fill=True,
+            fill_color='red',
+            fill_opacity=0.4,
+            weight=2,
+            frequency=float(place['frekv'])
         ).add_to(cluster)
     
     folium.LayerControl().add_to(m)
