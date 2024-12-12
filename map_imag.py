@@ -289,4 +289,4 @@ with col_map:
         ).add_to(cluster)
     
     folium.LayerControl().add_to(m)
-    m.to_streamlit(height=600)
+    m.to_streamlit(height=700)
