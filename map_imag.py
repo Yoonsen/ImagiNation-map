@@ -222,10 +222,10 @@ significant_places['score'] = significant_places['frekv'] * significant_places['
 
 # Get top places
 significant_places = significant_places.nlargest(max_places, 'score')
-
 with col_map:
-    center_lat = significant_places['latitude'].mean()
-    center_lon = significant_places['longitude'].mean()
+    significant_places_clean = significant_places.dropna(subset=['latitude', 'longitude'])
+    center_lat = significant_places_clean['latitude'].median()
+    center_lon = significant_places_clean['longitude'].median()
     
     m = leafmap.Map(
        center=(center_lat, center_lon),
