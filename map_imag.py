@@ -157,10 +157,7 @@ with col1:
 
 with col2:
     "### Statistikk og steder"
-    # Display corpus stats
-    st.write(f"Antall bøker i korpus: {len(subkorpus)}, antall forfattere: {len(list(set(subkorpus.author)))}")
-    #st.write(f"Antall forfattere: {len(list(set(subkorpus.author)))}")
-
+    
     preprocessed_places = load_exploded_places()
 
     all_place_names = sorted(preprocessed_places['name'].unique())
@@ -175,6 +172,11 @@ with col2:
             preprocessed_places['name'].isin(selected_places)
         ]['docs'].unique()
         subkorpus = subkorpus[subkorpus.dhlabid.isin(place_books)]
+
+    # Display corpus stats
+    st.write(f"Antall bøker i korpus: {len(subkorpus)}, antall forfattere: {len(list(set(subkorpus.author)))}")
+    #st.write(f"Antall forfattere: {len(list(set(subkorpus.author)))}")
+
     
     max_books = st.slider(
         "Maximum number of books to process", 
