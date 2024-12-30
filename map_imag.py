@@ -63,6 +63,7 @@ def sheet_display(df):
 def corpus():
     korpus_file = "imag_korpus.xlsx"
     corpus = pd.read_excel(korpus_file, index_col=0)
+    corpus['author'] = corpus['author'].fillna('').apply(lambda x: x.replace('/', ' '))
     authors = list(set(corpus.author))
     titles = list(set(corpus.title))
     categories = list(set(corpus.category))
@@ -139,7 +140,7 @@ with col1:
     
     if categories:
         subkorpus = subkorpus[subkorpus.category.isin(categories)]
-    
+        
     authors = st.multiselect('Forfatter', 
                            options=list(set(subkorpus.author)),
                            key="author_select")
