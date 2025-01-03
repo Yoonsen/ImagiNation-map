@@ -288,6 +288,7 @@ with tab1:
         zoom = EUROPE_VIEW['zoom']
         
         # Update based on button clicks
+
         if world_btn:
             center = WORLD_VIEW['center']
             zoom = WORLD_VIEW['zoom']
@@ -297,7 +298,39 @@ with tab1:
             
         m = st_make_map(significant_places, corpus_df, basemap, marker_size, center=center, zoom=zoom)
         m.to_streamlit(height=700)
+
+
+    #     m = st_make_map(significant_places, corpus_df, basemap, marker_size)
         
+    #     # Add JavaScript to handle view changes
+    #     m.get_root().html.add_child(folium.Element("""
+    #     <script>
+    #     // Wait for the map to be fully loaded
+    #     setTimeout(function() {
+    #         // In leafmap, the map object is typically stored in a different way
+    #         var maps = document.getElementsByClassName('leaflet-container');
+    #         if (maps.length > 0) {
+    #             var map = maps[0];
+    #             var leafletMap = map.__leaflet_map__;  // This gets the actual Leaflet map object
+                
+    #             // Add click handlers for the buttons
+    #             document.querySelector('[data-testid="baseButton-world_view1"]').onclick = function() {
+    #                 if (leafletMap) {
+    #                     leafletMap.setView([20, 0], 2);
+    #                 }
+    #             };
+                
+    #             document.querySelector('[data-testid="baseButton-europe_view1"]').onclick = function() {
+    #                 if (leafletMap) {
+    #                     leafletMap.setView([55, 15], 4);
+    #                 }
+    #             };
+    #         }
+    #     }, 1000);  // Give the map time to initialize
+    #     </script>
+    # """))
+        
+    #     m.to_streamlit(height=700)
 
 with col3:
     f"### Liste over alle {len(all_places)} navngitte steder i korpuset"
@@ -348,18 +381,53 @@ with tab2:
             center = EUROPE_VIEW['center']
             zoom = EUROPE_VIEW['zoom']
             
+        # m_heat = leafmap.Map(
+        #     center=center,
+        #     zoom=zoom,
+        #     basemap=basemap
+        # )
+        # # Prepare data for heatmap
+        # heat_data = [
+        #     [row['latitude'], row['longitude'], row['frekv']] 
+        #     for _, row in all_places.iterrows()
+        # ]
+
+        # # Add heatmap layer
+        # HeatMap(
+        #     data=heat_data,
+        #     radius=heat_radius,
+        #     blur=heat_blur,
+        #     max_zoom=1,
+        #     max_val=max_intensity,
+        # ).add_to(m_heat)
+
+        # # Render the heatmap in Streamlit
+        # m_heat.to_streamlit(height=700)
         m_heat = leafmap.Map(
             center=center,
             zoom=zoom,
             basemap=basemap
         )
-        # Prepare data for heatmap
+        
+        # Add JavaScript for heatmap view changes
+        m_heat.get_root().html.add_child(folium.Element("""
+            <script>
+            var heatmap = document.querySelector('#map');  // Adjust selector if needed
+            
+            document.querySelector('[data-testid="baseButton-world_view2"]').onclick = function() {
+                heatmap.setView([20, 0], 2);
+            };
+            
+            document.querySelector('[data-testid="baseButton-europe_view2"]').onclick = function() {
+                heatmap.setView([55, 15], 4);
+            };
+            </script>
+        """))
         heat_data = [
             [row['latitude'], row['longitude'], row['frekv']] 
             for _, row in all_places.iterrows()
         ]
-
-        # Add heatmap layer
+        # Add heatmap layer and render
         HeatMap(
             data=heat_data,
             radius=heat_radius,
@@ -367,6 +435,5 @@ with tab2:
             max_zoom=1,
             max_val=max_intensity,
         ).add_to(m_heat)
-
-        # Render the heatmap in Streamlit
+        
         m_heat.to_streamlit(height=700)
