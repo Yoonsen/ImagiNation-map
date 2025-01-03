@@ -106,9 +106,8 @@ return L.divIcon({
         html = f"""
         <div style='width:500px'>
             <h4>{place['name']}</h4>
-            <p><strong>Historical name:</strong> {place['token']}</p>
-            <p><strong>{place['frekv']} mentions in {book_count} books</strong></p>
-            <p>Dispersion score: {place['dispersion']:.3f}</p>
+            <p><strong>Historisk navn:</strong> {place['token']}</p>
+            <p><strong>{place['frekv']} forekomster i {book_count} bøker</strong></p>
             <div style='max-height: 400px; overflow-y: auto;'>
                 <table style='width: 100%; border-collapse: collapse;'>
                     <thead style='position: sticky; top: 0; background: white;'>
@@ -148,7 +147,7 @@ return L.divIcon({
             radius=radius,
             location=[place['latitude'], place['longitude']],
             popup=folium.Popup(html, max_width=500),
-            tooltip=f"{place['name']}: {place['frekv']} mentions in {book_count} books",
+            tooltip=f"{place['name']}: {place['frekv']} forekomster i {book_count} bøker",
             color=feature_colors[place['feature_class']],
             fill=True,
             fill_color=feature_colors[place['feature_class']],
